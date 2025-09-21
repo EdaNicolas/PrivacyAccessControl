@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Access Control System</title>
+    <meta name="description" content="Confidential permission management using FHE encryption on blockchain">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+    <!-- Ethers.js v6 with CDN fallback -->
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script>
+        // Check if ethers.js loaded successfully, with fallback loading
+        if (typeof ethers === 'undefined') {
+            console.warn('⚠️ Primary CDN failed, trying fallback...');
+            // Try alternative CDN
+            const script1 = document.createElement('script');
+            script1.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+            script1.onload = function() {
+                if (typeof ethers !== 'undefined') {
+                    console.log('✅ Ethers.js loaded from fallback CDN:', ethers.version);
+                    initializeApp();
+                } else {
+                    showEthersError();
+                }
+            };
+            script1.onerror = function() {
+                console.warn('⚠️ Fallback CDN failed, trying local file...');
+                // Try local file as last resort
+                const script2 = document.createElement('script');
+                script2.src = './ethers.min.js';
+                script2.onload = function() {
+                    if (typeof ethers !== 'undefined') {
+                        console.log('✅ Ethers.js loaded from local file:', ethers.version);
+                        initializeApp();
+                    } else {
+                        showEthersError();
+                    }
+                };
+                script2.onerror = showEthersError;
+                document.head.appendChild(script2);
+            };
+            document.head.appendChild(script1);
+        } else {
+            console.log('✅ Ethers.js loaded successfully from primary CDN:', ethers.version);
+            initializeApp();
+        }
+
+        function showEthersError() {
+            console.error('❌ All Ethers.js loading methods failed!');
+            document.body.innerHTML = `
+                <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif; background: #f7fafc; min-height: 100vh; color: #1a202c;">
+                    <div style="background: white; color: #1a202c; padding: 40px; border-radius: 20px; max-width: 600px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+                        <h1 style="color: #f56565; margin-bottom: 20px;">⚠️ Loading Error</h1>
+                        <p style="margin-bottom: 20px; color: #4a5568;">Ethers.js library failed to load from all CDN sources.</p>
+                        <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: left; border: 1px solid #e2e8f0;">
+                            <h3 style="color: #1a202c; margin-bottom: 15px;">Troubleshooting:</h3>
+                            <ul style="margin: 0; padding-left: 20px; color: #718096;">
+                                <li>Check your internet connection</li>
+                                <li>Disable ad blockers</li>
+                                <li>Try a different browser</li>
+                                <li>Clear browser cache</li>
+                            </ul>
+                        </div>
+                        <button onclick="window.location.reload()" style="padding: 12px 24px; background: #1a202c; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: 600;">
+                            🔄 Refresh Page
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initializeApp() {
+            // App initialization will be called after ethers loads
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', checkWalletConnection);
+            } else {
+                checkWalletConnection();
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --primary: #2d3748;
+            --secondary: #1a202c;
+            --success: #48bb78;
+            --danger: #f56565;
+            --warning: #ed8936;
+            --light: #f7fafc;
+            --dark: #1a202c;
+            --border: #e2e8f0;
+            --gray-100: #f7fafc;
+            --gray-200: #edf2f7;
+            --gray-300: #e2e8f0;
+            --gray-400: #cbd5e0;
+            --gray-500: #a0aec0;
+            --gray-600: #718096;
+            --gray-700: #4a5568;
+            --gray-800: #2d3748;
+            --gray-900: #1a202c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+            min-height: 100vh;
+            color: var(--gray-900);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 10px 15px rgba(0,0,0,0.1);
+            border: 1px solid var(--gray-200);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--gray-900);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: var(--gray-600);
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin: 30px 0;
+            padding: 25px;
+            border-radius: 15px;
+            background: var(--gray-100);
+            border-left: 4px solid var(--gray-800);
+            border: 1px solid var(--gray-200);
+        }
+
+        .section h3 {
+            color: var(--gray-900);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin: 25px 0;
+        }
+
+        .info-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--gray-300);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .info-card h4 {
+            color: var(--gray-900);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin: 20px 0;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            margin: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-300);
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+            color: var(--gray-900);
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--gray-800);
+            box-shadow: 0 0 0 3px rgba(45, 55, 72, 0.1);
+        }
+
+        .btn {
+            background: var(--gray-900);
+            color: white;
+            border: 2px solid var(--gray-900);
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+            min-width: 120px;
+        }
+
+        .btn:hover {
+            background: var(--gray-800);
+            border-color: var(--gray-800);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: var(--gray-400);
+            border-color: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--gray-900);
+            border: 2px solid var(--gray-900);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-100);
+        }
+
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+            border-color: #38a169;
+        }
+
+        .btn-danger {
+            background: white;
+            color: var(--danger);
+            border: 2px solid var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .status {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 500;
+            border-left: 4px solid;
+        }
+
+        .status.success {
+            background: #f0fff4;
+            border-color: var(--success);
+            color: #22543d;
+        }
+
+        .status.error {
+            background: #fff5f5;
+            border-color: var(--danger);
+            color: #742a2a;
+        }
+
+        .status.info {
+            background: var(--gray-100);
+            border-color: var(--gray-800);
+            color: var(--gray-900);
+        }
+
+        .address {
+            font-family: 'Courier New', monospace;
+            background: var(--gray-100);
+            padding: 10px;
+            border-radius: 8px;
+            word-break: break-all;
+            border: 1px solid var(--gray-300);
+            font-size: 0.85rem;
+            color: var(--gray-900);
+        }
+
+        .connected {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .disconnected {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .level-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            margin-left: 8px;
+        }
+
+        .level-low { background: var(--gray-600); }
+        .level-medium { background: var(--gray-800); }
+        .level-high { background: var(--gray-900); }
+
+        .data-display {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--gray-300);
+            border-radius: 10px;
+            padding: 20px;
+            background: white;
+            margin-top: 15px;
+        }
+
+        .data-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: var(--gray-100);
+            border-radius: 8px;
+            border-left: 3px solid var(--gray-900);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            .main-card { padding: 25px; }
+            h1 { font-size: 2rem; }
+            .grid { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; }
+            .form-row .form-group { margin-bottom: 15px; }
+        }
+
+        .network-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid var(--gray-300);
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 1000;
+            color: var(--gray-900);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="network-status" id="networkStatus">
+        <span id="networkName">Disconnected</span>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="main-card">
+                <h1>🔐 Privacy Access Control</h1>
+                <p class="subtitle">Confidential permission management using FHE encryption</p>
+
+                <!-- Connection Section -->
+                <div class="section">
+                    <h3>🔗 Connection</h3>
+                    <div class="grid">
+                        <div class="info-card">
+                            <h4>Account Status</h4>
+                            <div><strong>Address:</strong></div>
+                            <div id="accountAddress" class="address">Not connected</div>
+                            <div style="margin-top: 10px;">
+                                <strong>Status:</strong>
+                                <span id="connectionStatus" class="disconnected">Disconnected</span>
+                            </div>
+                        </div>
+                        <div class="info-card">
+                            <h4>Contract Information</h4>
+                            <div><strong>Address:</strong></div>
+                            <div class="address">0xf47D77882E6BB2014a0A3eDe9B5F05D4b34B5c71</div>
+                            <div style="margin-top: 10px;">
+                                <strong>Network:</strong> Sepolia Testnet
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="connectWallet()">
+                        <span id="connectText">Connect Wallet</span>
+                    </button>
+                    <div id="connectionMessage" class="status hidden"></div>
+                </div>
+
+                <!-- Create Resource Section -->
+                <div class="section">
+                    <h3>🏗️ Create Resource</h3>
+                    <div class="form-group">
+                        <label>Resource Name:</label>
+                        <input type="text" id="resourceName" placeholder="e.g., Confidential Database">
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <textarea id="resourceDescription" rows="3" placeholder="Describe the resource and its sensitivity level"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Sensitivity Level (0-255):</label>
+                        <input type="number" id="sensitivityLevel" min="0" max="255" value="100" placeholder="Higher = more sensitive">
+                        <small style="color: #718096; font-size: 0.8rem;">
+                            0=Public, 50=Internal, 100=Confidential, 200=Secret, 255=Top Secret
+                        </small>
+                    </div>
+                    <button class="btn" onclick="createResource()">Create Resource</button>
+                    <div id="createResourceStatus" class="status hidden"></div>
+                </div>
+
+                <!-- Request Access Section -->
+                <div class="section">
+                    <h3>🔑 Request Access</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Resource ID:</label>
+                            <input type="number" id="requestResourceId" min="1" placeholder="Enter resource ID">
+                        </div>
+                        <div class="form-group">
+                            <label>Access Level (0-255):</label>
+                            <input type="number" id="requestedLevel" min="0" max="255" value="50" placeholder="Required access level">
+                        </div>
+                    </div>
+                    <button class="btn" onclick="requestAccess()">Request Access</button>
+                    <div id="requestAccessStatus" class="status hidden"></div>
+                </div>
+
+                <!-- Process Requests Section -->
+                <div class="section">
+                    <h3>✅ Process Access Requests</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Request ID:</label>
+                            <input type="number" id="processRequestId" min="1" placeholder="Enter request ID">
+                        </div>
+                        <div class="form-group">
+                            <label>Decision:</label>
+                            <select id="approveRequest">
+                                <option value="true">Approve</option>
+                                <option value="false">Reject</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="processRequest()">Process Request</button>
+                    <div id="processRequestStatus" class="status hidden"></div>
+                </div>
+
+                <!-- Verify Access Section -->
+                <div class="section">
+                    <h3>🔍 Verify Access</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Resource ID:</label>
+                            <input type="number" id="verifyResourceId" min="1" placeholder="Enter resource ID">
+                        </div>
+                        <div class="form-group">
+                            <label>Required Level:</label>
+                            <input type="number" id="verifyRequiredLevel" min="0" max="255" value="50" placeholder="Minimum access level">
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="verifyAccess()">Verify Access</button>
+                    <div id="verifyAccessStatus" class="status hidden"></div>
+                </div>
+
+                <!-- Information Section -->
+                <div class="section">
+                    <h3>📋 Information & Management</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Resource/Permission ID:</label>
+                            <input type="number" id="infoId" min="1" placeholder="Enter ID">
+                        </div>
+                        <div class="form-group">
+                            <label>User Address (optional):</label>
+                            <input type="text" id="userAddress" placeholder="Enter address or leave empty">
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-secondary" onclick="getResourceInfo()">Get Resource Info</button>
+                        <button class="btn btn-secondary" onclick="getPermissionInfo()">Get Permission Info</button>
+                        <button class="btn btn-secondary" onclick="getUserStats()">Get User Stats</button>
+                        <button class="btn btn-danger" onclick="revokePermission()">Revoke Permission</button>
+                    </div>
+                    <div id="infoStatus" class="status hidden"></div>
+                    <div id="infoDisplay" class="data-display hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Privacy Access Control System - Powered by FHE Encryption</p>
+        </div>
+    </div>
+
+    <script>
+        // App will be initialized by initializeApp() function called after ethers.js loads
+
+        // Constants
+        const CONTRACT_ADDRESS = '0xf47D77882E6BB2014a0A3eDe9B5F05D4b34B5c71';
+        const SEPOLIA_CHAIN_ID = '0xaa36a7';
+        const SEPOLIA_RPC_URL = 'https://sepolia.infura.io/v3/';
+
+        const CONTRACT_ABI = [
+            "function owner() view returns (address)",
+            "function createResource(string memory _name, string memory _description, uint8 _sensitivityLevel) returns (uint32)",
+            "function requestAccess(uint32 _resourceId, uint8 _requestedLevel) returns (uint32)",
+            "function processAccessRequest(uint32 _requestId, bool _approve)",
+            "function verifyAccess(uint32 _resourceId, uint8 _requiredLevel) view returns (bool)",
+            "function revokePermission(uint32 _permissionId)",
+            "function getResourceInfo(uint32 _resourceId) view returns (string, string, address, uint256)",
+            "function getUserResourceCount(address _user) view returns (uint256)",
+            "function getUserPermissionCount(address _user) view returns (uint256)",
+            "function getPermissionInfo(uint32 _permissionId) view returns (uint32, address, uint256, uint256, bool, address)",
+            "function getRequestInfo(uint32 _requestId) view returns (uint32, address, uint256, bool, bool, address)",
+            "event ResourceCreated(uint32 indexed resourceId, string name, address indexed creator)",
+            "event PermissionGranted(uint32 indexed permissionId, uint32 indexed resourceId, address indexed user, address grantedBy)",
+            "event AccessRequested(uint32 indexed requestId, uint32 indexed resourceId, address indexed requester)",
+            "event AccessRequestProcessed(uint32 indexed requestId, bool approved, address indexed processedBy)",
+            "event PermissionRevoked(uint32 indexed permissionId, address indexed revokedBy)"
+        ];
+
+        // Global variables
+        let provider;
+        let signer;
+        let contract;
+        let userAccount;
+
+
+        // Wallet connection functions
+        async function connectWallet() {
+            try {
+                // Step 1: Check MetaMask availability
+                if (typeof window.ethereum === 'undefined') {
+                    showStatus('connectionMessage', 'MetaMask not detected. Please install MetaMask browser extension.', 'error');
+                    return;
+                }
+
+                const connectBtn = document.getElementById('connectText');
+                connectBtn.innerHTML = '<span class="loading"></span>Connecting...';
+
+                showStatus('connectionMessage', 'Step 1: Detecting MetaMask... ✅', 'info');
+
+                // Step 2: Request account access
+                showStatus('connectionMessage', 'Step 2: Requesting account access...', 'info');
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+                if (accounts.length === 0) {
+                    throw new Error('No accounts found. Please unlock MetaMask.');
+                }
+
+                showStatus('connectionMessage', 'Step 3: Verifying network connection...', 'info');
+
+                // Step 3: Network validation and switch
+                await validateAndSwitchNetwork();
+
+                showStatus('connectionMessage', 'Step 4: Setting up provider and signer...', 'info');
+
+                // Step 4: Setup provider and signer (ethers.js v5)
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                userAccount = await signer.getAddress();
+
+                showStatus('connectionMessage', 'Step 5: Initializing contract instance...', 'info');
+
+                // Step 5: Contract initialization
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+                // Verify contract is accessible
+                try {
+                    await contract.owner();
+                } catch (contractError) {
+                    console.warn('Contract verification failed:', contractError);
+                    showStatus('connectionMessage', 'Warning: Contract may not be deployed on current network', 'error');
+                }
+
+                showStatus('connectionMessage', 'Step 6: Updating interface...', 'info');
+
+                // Step 6: Update UI state
+                updateConnectionUI(true);
+
+                // Step 7: Setup event listeners
+                setupEventListeners();
+
+                showStatus('connectionMessage', 'Connected to Sepolia successfully! ✅', 'success');
+
+            } catch (error) {
+                console.error('Connection error:', error);
+                document.getElementById('connectText').textContent = 'Connect Wallet';
+                updateConnectionUI(false);
+
+                let errorMessage = 'Connection failed: ';
+                if (error.code === 4001) {
+                    errorMessage += 'User rejected the connection request';
+                } else if (error.code === -32002) {
+                    errorMessage += 'Connection request already pending. Please check MetaMask.';
+                } else {
+                    errorMessage += error.message;
+                }
+
+                showStatus('connectionMessage', errorMessage, 'error');
+            }
+        }
+
+        async function validateAndSwitchNetwork() {
+            const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+
+            if (currentChainId !== SEPOLIA_CHAIN_ID) {
+                showStatus('connectionMessage', 'Switching to Sepolia testnet...', 'info');
+                await switchToSepolia();
+            } else {
+                showStatus('connectionMessage', 'Already connected to Sepolia ✅', 'info');
+            }
+        }
+
+        function updateConnectionUI(connected) {
+            if (connected) {
+                document.getElementById('accountAddress').textContent = userAccount;
+                document.getElementById('connectionStatus').textContent = 'Connected';
+                document.getElementById('connectionStatus').className = 'connected';
+                document.getElementById('networkName').textContent = 'Sepolia Testnet';
+                document.getElementById('connectText').textContent = 'Connected ✅';
+            } else {
+                document.getElementById('accountAddress').textContent = 'Not connected';
+                document.getElementById('connectionStatus').textContent = 'Disconnected';
+                document.getElementById('connectionStatus').className = 'disconnected';
+                document.getElementById('networkName').textContent = 'Disconnected';
+                document.getElementById('connectText').textContent = 'Connect Wallet';
+            }
+        }
+
+        function setupEventListeners() {
+            // Listen for account changes
+            window.ethereum.on('accountsChanged', handleAccountsChanged);
+            window.ethereum.on('chainChanged', handleChainChanged);
+        }
+
+        async function switchToSepolia() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: SEPOLIA_CHAIN_ID }],
+                });
+                showStatus('connectionMessage', 'Successfully switched to Sepolia testnet ✅', 'success');
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    // Network not added to MetaMask, add it
+                    try {
+                        showStatus('connectionMessage', 'Adding Sepolia network to MetaMask...', 'info');
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: SEPOLIA_CHAIN_ID,
+                                chainName: 'Sepolia Test Network',
+                                rpcUrls: ['https://sepolia.infura.io/v3/', 'https://rpc.sepolia.org'],
+                                blockExplorerUrls: ['https://sepolia.etherscan.io/'],
+                                nativeCurrency: {
+                                    name: 'Sepolia ETH',
+                                    symbol: 'SEP',
+                                    decimals: 18
+                                }
+                            }]
+                        });
+                        showStatus('connectionMessage', 'Sepolia network added successfully ✅', 'success');
+                    } catch (addError) {
+                        throw new Error('Failed to add Sepolia network to MetaMask');
+                    }
+                } else if (switchError.code === 4001) {
+                    throw new Error('User rejected network switch request');
+                } else {
+                    throw switchError;
+                }
+            }
+        }
+
+        async function checkWalletConnection() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    console.error('Error checking wallet connection:', error);
+                }
+            }
+        }
+
+        function handleAccountsChanged(accounts) {
+            if (accounts.length === 0) {
+                disconnectWallet();
+            } else {
+                window.location.reload();
+            }
+        }
+
+        function handleChainChanged(chainId) {
+            window.location.reload();
+        }
+
+        function disconnectWallet() {
+            provider = null;
+            signer = null;
+            contract = null;
+            userAccount = null;
+
+            updateConnectionUI(false);
+            showStatus('connectionMessage', 'Wallet disconnected', 'info');
+        }
+
+        // Contract interaction functions
+        async function createResource() {
+            if (!contract) {
+                showStatus('createResourceStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            const name = document.getElementById('resourceName').value;
+            const description = document.getElementById('resourceDescription').value;
+            const sensitivityLevel = document.getElementById('sensitivityLevel').value;
+
+            if (!name || !description) {
+                showStatus('createResourceStatus', 'Please fill in all required fields', 'error');
+                return;
+            }
+
+            try {
+                showStatus('createResourceStatus', 'Creating resource...', 'info');
+
+                const tx = await contract.createResource(name, description, parseInt(sensitivityLevel));
+                const receipt = await tx.wait();
+
+                const level = getSensitivityLabel(sensitivityLevel);
+                showStatus('createResourceStatus',
+                    `Resource created successfully! Sensitivity: ${level}. Transaction: ${tx.hash}`, 'success');
+
+                // Clear form
+                document.getElementById('resourceName').value = '';
+                document.getElementById('resourceDescription').value = '';
+                document.getElementById('sensitivityLevel').value = '100';
+
+            } catch (error) {
+                showStatus('createResourceStatus', 'Error creating resource: ' + error.message, 'error');
+            }
+        }
+
+        async function requestAccess() {
+            if (!contract) {
+                showStatus('requestAccessStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            const resourceId = document.getElementById('requestResourceId').value;
+            const requestedLevel = document.getElementById('requestedLevel').value;
+
+            if (!resourceId || !requestedLevel) {
+                showStatus('requestAccessStatus', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                showStatus('requestAccessStatus', 'Requesting access...', 'info');
+
+                const tx = await contract.requestAccess(parseInt(resourceId), parseInt(requestedLevel));
+                await tx.wait();
+
+                showStatus('requestAccessStatus',
+                    `Access requested successfully! Transaction: ${tx.hash}`, 'success');
+
+            } catch (error) {
+                showStatus('requestAccessStatus', 'Error requesting access: ' + error.message, 'error');
+            }
+        }
+
+        async function processRequest() {
+            if (!contract) {
+                showStatus('processRequestStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            const requestId = document.getElementById('processRequestId').value;
+            const approve = document.getElementById('approveRequest').value === 'true';
+
+            if (!requestId) {
+                showStatus('processRequestStatus', 'Please enter request ID', 'error');
+                return;
+            }
+
+            try {
+                showStatus('processRequestStatus', 'Processing request...', 'info');
+
+                const tx = await contract.processAccessRequest(parseInt(requestId), approve);
+                await tx.wait();
+
+                const action = approve ? 'approved' : 'rejected';
+                showStatus('processRequestStatus',
+                    `Request ${action} successfully! Transaction: ${tx.hash}`, 'success');
+
+            } catch (error) {
+                showStatus('processRequestStatus', 'Error processing request: ' + error.message, 'error');
+            }
+        }
+
+        async function verifyAccess() {
+            if (!contract) {
+                showStatus('verifyAccessStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            const resourceId = document.getElementById('verifyResourceId').value;
+            const requiredLevel = document.getElementById('verifyRequiredLevel').value;
+
+            if (!resourceId || !requiredLevel) {
+                showStatus('verifyAccessStatus', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                const hasAccess = await contract.verifyAccess(parseInt(resourceId), parseInt(requiredLevel));
+                const status = hasAccess ? '✅ ACCESS GRANTED' : '❌ ACCESS DENIED';
+                const type = hasAccess ? 'success' : 'error';
+
+                showStatus('verifyAccessStatus', `Access verification result: ${status}`, type);
+
+            } catch (error) {
+                showStatus('verifyAccessStatus', 'Error verifying access: ' + error.message, 'error');
+            }
+        }
+
+        async function getResourceInfo() {
+            if (!contract) {
+                showStatus('infoStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            const resourceId = document.getElementById('infoId').value;
+            if (!resourceId) {
+                showStatus('infoStatus', 'Please enter resource ID', 'error');
+                return;
+            }
+
+            try {
+                const info = await contract.getResourceInfo(parseInt(resourceId));
+                const html = `
+                    <div class="data-item fade-in">
+                        <h4>Resource #${resourceId} Information</h4>
+                        <p><strong>Name:</strong> ${info[0]}</p>
+                        <p><strong>Description:</strong> ${info[1]}</p>
+                        <p><strong>Creator:</strong> <div class="address">${info[2]}</div></p>
+                        <p><strong>Created:</strong> ${new Date(info[3] * 1000).toLocaleString()}</p>
+                    </div>
+                `;
+
+                document.getElementById('infoDisplay').innerHTML = html;
+                document.getElementById('infoDisplay').classList.remove('hidden');
+                showStatus('infoStatus', 'Resource information loaded successfully', 'success');
+
+            } catch (error) {
+                showStatus('infoStatus', 'Error loading resource info: ' + error.message, 'error');
+            }
+        }
+
+        async function getPermissionInfo() {
+            if (!contract) {
+                showStatus('infoStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            const permissionId = document.getElementById('infoId').value;
+            if (!permissionId) {
+                showStatus('infoStatus', 'Please enter permission ID', 'error');
+                return;
+            }
+
+            try {
+                const info = await contract.getPermissionInfo(parseInt(permissionId));
+                const status = info[4] ? '✅ Active' : '❌ Revoked';
+                const statusClass = info[4] ? 'success' : 'error';
+
+                const html = `
+                    <div class="data-item fade-in">
+                        <h4>Permission #${permissionId} Information</h4>
+                        <p><strong>Resource ID:</strong> ${info[0]}</p>
+                        <p><strong>User:</strong> <div class="address">${info[1]}</div></p>
+                        <p><strong>Granted:</strong> ${new Date(info[2] * 1000).toLocaleString()}</p>
+                        <p><strong>Expires:</strong> ${new Date(info[3] * 1000).toLocaleString()}</p>
+                        <p><strong>Status:</strong> <span class="${statusClass}">${status}</span></p>
+                        <p><strong>Granted By:</strong> <div class="address">${info[5]}</div></p>
+                    </div>
+                `;
+
+                document.getElementById('infoDisplay').innerHTML = html;
+                document.getElementById('infoDisplay').classList.remove('hidden');
+                showStatus('infoStatus', 'Permission information loaded successfully', 'success');
+
+            } catch (error) {
+                showStatus('infoStatus', 'Error loading permission info: ' + error.message, 'error');
+            }
+        }
+
+        async function getUserStats() {
+            if (!contract) {
+                showStatus('infoStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            let address = document.getElementById('userAddress').value;
+            if (!address) address = userAccount;
+
+            if (!address) {
+                showStatus('infoStatus', 'Please enter user address or connect wallet', 'error');
+                return;
+            }
+
+            try {
+                const resourceCount = await contract.getUserResourceCount(address);
+                const permissionCount = await contract.getUserPermissionCount(address);
+
+                const html = `
+                    <div class="data-item fade-in">
+                        <h4>User Statistics</h4>
+                        <p><strong>Address:</strong> <div class="address">${address}</div></p>
+                        <p><strong>Resources Created:</strong> ${resourceCount}</p>
+                        <p><strong>Permissions Granted:</strong> ${permissionCount}</p>
+                        <p><strong>Generated At:</strong> ${new Date().toLocaleString()}</p>
+                    </div>
+                `;
+
+                document.getElementById('infoDisplay').innerHTML = html;
+                document.getElementById('infoDisplay').classList.remove('hidden');
+                showStatus('infoStatus', 'User statistics loaded successfully', 'success');
+
+            } catch (error) {
+                showStatus('infoStatus', 'Error loading user stats: ' + error.message, 'error');
+            }
+        }
+
+        async function revokePermission() {
+            if (!contract) {
+                showStatus('infoStatus', 'Please connect your wallet first', 'error');
+                return;
+            }
+
+            const permissionId = document.getElementById('infoId').value;
+            if (!permissionId) {
+                showStatus('infoStatus', 'Please enter permission ID', 'error');
+                return;
+            }
+
+            try {
+                showStatus('infoStatus', 'Revoking permission...', 'info');
+
+                const tx = await contract.revokePermission(parseInt(permissionId));
+                await tx.wait();
+
+                showStatus('infoStatus',
+                    `Permission revoked successfully! Transaction: ${tx.hash}`, 'success');
+
+            } catch (error) {
+                showStatus('infoStatus', 'Error revoking permission: ' + error.message, 'error');
+            }
+        }
+
+        // Utility functions
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+            element.classList.remove('hidden');
+
+            // Auto-hide after delay, but keep success/error messages longer
+            const hideDelay = type === 'info' ? 3000 : type === 'success' ? 7000 : 8000;
+            setTimeout(() => {
+                if (element.textContent === message) { // Only hide if message hasn't changed
+                    element.classList.add('hidden');
+                }
+            }, hideDelay);
+        }
+
+        function getSensitivityLabel(level) {
+            if (level < 50) return 'Public';
+            if (level < 100) return 'Internal';
+            if (level < 150) return 'Confidential';
+            if (level < 200) return 'Secret';
+            return 'Top Secret';
+        }
+
+        function formatAddress(address) {
+            return address.slice(0, 6) + '...' + address.slice(-4);
+        }
+
+    </script>
+</body>
+</html>
